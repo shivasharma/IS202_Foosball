@@ -80,7 +80,7 @@ mysql -h 127.0.0.1 -P 3307 -u user -p
 
 1. Open a shell inside the running MySQL container:
 ```
-docker exec -it mysql-IS436 sh
+docker exec -it mysql-IS202 sh
 ```
 2. Connect to MySQL using the client inside the container:
 ```
@@ -94,7 +94,7 @@ mysql -u user -p
 - Port: 3307
 - Username: user
 - Password: your_secure_password
-- Database: IS436
+- Database: IS202
 
 You can use these settings to connect with MySQL Workbench, DBeaver, or any other database GUI tool.
 
@@ -103,7 +103,7 @@ You can use these settings to connect with MySQL Workbench, DBeaver, or any othe
 1. Download and install [MySQL Workbench](https://dev.mysql.com/downloads/workbench/) if you don't have it already.
 2. Open MySQL Workbench and click the "+" button next to "MySQL Connections" to create a new connection.
 3. Fill in the connection details:
-   - **Connection Name:** IS436 (or any name you like)
+   - **Connection Name:** IS202 (or any name you like)
    - **Hostname:** 127.0.0.1
    - **Port:** 3307
    - **Username:** user
