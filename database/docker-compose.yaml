@@ -2,7 +2,7 @@
 services: # Define all services (containers) to be run
   db: # The database service
     image: mysql:8.0 # Use the MySQL 8.0 Alpine image (lightweight version)
-    container_name: mysql-IS436 # Name the container for easier management
+    container_name: mysql-IS202 # Name the container for easier management
     environment: # Set environment variables for MySQL
       MYSQL_DATABASE: ${MYSQL_DATABASE} # Name of the default database to create
       MYSQL_USER: ${MYSQL_USER} # Non-root user for the database
