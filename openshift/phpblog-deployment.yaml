@@ -1,0 +1,241 @@
+# --- Secrets (DB creds)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: phpblog-mysql-secret
+  labels:
+    app: phpblog
+stringData:
+  MYSQL_ROOT_PASSWORD: rootpassword
+  MYSQL_DATABASE: lamp_demo
+  MYSQL_USER: lamp_demo
+  MYSQL_PASSWORD: password
+---
+# --- ConfigMap for initial schema/data (created from your db/data.sql)
+# If you prefer CLI, you can run:
+#   oc create configmap phpblog-initdb-config --from-file=db/data.sql
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: phpblog-initdb-config
+  labels:
+    app: phpblog
+# Provide an empty default; you can recreate this ConfigMap from file as above
+# data:
+#   data.sql: |
+#     -- paste contents of phpblogcode/db/data.sql here if desired
+---
+# --- Persistent storage for MySQL
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: phpblog-mysql-pvc
+  labels:
+    app: phpblog
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+# --- MySQL (Bitnami image runs non-root and works well on OpenShift)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+  labels:
+    app: phpblog
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: phpblog
+      tier: mysql
+  template:
+    metadata:
+      labels:
+        app: phpblog
+        tier: mysql
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 1001
+      containers:
+        - name: mysql
+          image: bitnami/mysql:8.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3306
+              name: mysql
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: phpblog-mysql-secret
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: phpblog-mysql-secret
+                  key: MYSQL_DATABASE
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: phpblog-mysql-secret
+                  key: MYSQL_USER
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: phpblog-mysql-secret
+                  key: MYSQL_PASSWORD
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /bitnami/mysql
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p$MYSQL_ROOT_PASSWORD"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p$MYSQL_ROOT_PASSWORD"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      volumes:
+        - name: mysql-data
+          persistentVolumeClaim:
+            claimName: phpblog-mysql-pvc
+        - name: initdb
+          configMap:
+            name: phpblog-initdb-config
+            optional: true
+---
+# --- Stable Service name 'db' to match connect.php
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  labels:
+    app: phpblog
+spec:
+  selector:
+    app: phpblog
+    tier: mysql
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: mysql
+  type: ClusterIP
+---
+# --- PHP Apache app (built from your Dockerfile and pushed to Docker Hub)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phpblog
+  labels:
+    app: phpblog
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: phpblog
+      tier: web
+  template:
+    metadata:
+      labels:
+        app: phpblog
+        tier: web
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 0
+      containers:
+        - name: php-apache
+          image: docker.io/<your-dockerhub-username>/phpblog:1.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+            # Not used by your current PHP code (it hardcodes values), but handy for future
+            - name: DB_HOST
+              value: db
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: phpblog-mysql-secret
+                  key: MYSQL_DATABASE
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: phpblog-mysql-secret
+                  key: MYSQL_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: phpblog-mysql-secret
+                  key: MYSQL_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: phpblog
+  labels:
+    app: phpblog
+spec:
+  selector:
+    app: phpblog
+    tier: web
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+  type: ClusterIP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: phpblog
+  labels:
+    app: phpblog
+spec:
+  to:
+    kind: Service
+    name: phpblog
+  port:
+    targetPort: http
+  wildcardPolicy: None
+  # Uncomment to enable TLS edge termination if needed
+  # tls:
+  #   termination: edge

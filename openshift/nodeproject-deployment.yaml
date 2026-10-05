@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nodeproject
+  labels:
+    app: nodeproject
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nodeproject
+  template:
+    metadata:
+      labels:
+        app: nodeproject
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: nodeproject
+          image: <your-registry>/<your-namespace>/nodeproject:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: NODE_ENV
+              value: production
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nodeproject
+  labels:
+    app: nodeproject
+spec:
+  selector:
+    app: nodeproject
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+  type: ClusterIP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: nodeproject
+  labels:
+    app: nodeproject
+spec:
+  to:
+    kind: Service
+    name: nodeproject
+    weight: 100
+  port:
+    targetPort: http
+  # Uncomment to enable TLS edge termination if your cluster requires HTTPS
+  # tls:
+  #   termination: edge
+  wildcardPolicy: None
