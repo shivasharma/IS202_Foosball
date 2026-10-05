@@ -1,5 +1,5 @@
-# IS436-Classwork-Foosball
-IS436 Classwork Foosball Project
+# IS202-Classwork-Foosball
+IS202 Classwork Foosball Project
 
 # Docker command to create mysql database
 
