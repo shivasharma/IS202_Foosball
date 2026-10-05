@@ -1,47 +1,404 @@
 
-services: # Define all services (containers) to be run
-  db: # The database service
-    image: mysql:8.0 # Use the MySQL 8.0 Alpine image (lightweight version)
-    container_name: mysql-IS202 # Name the container for easier management
-    environment: # Set environment variables for MySQL
-      MYSQL_DATABASE: ${MYSQL_DATABASE} # Name of the default database to create
-      MYSQL_USER: ${MYSQL_USER} # Non-root user for the database
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD} # Password for the non-root user
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD} # Root password for MySQL
-      TZ: UTC # Set the timezone to UTC for consistency
+# ============================================================
+# IS202 - MySQL Database Server using Docker
+# ============================================================
+#
+# This Docker Compose file creates a MySQL 8.0 database server.
+#
+# Students will be able to:
+#   1. Start a MySQL database using Docker
+#   2. Connect to MySQL using MySQL Workbench
+#   3. Create databases and tables
+#   4. Store data persistently using a Docker volume
+#   5. Automatically initialize a database using SQL scripts
+#
+# Connection from MySQL Workbench:
+#
+#   Host:     127.0.0.1
+#   Port:     3307
+#   Username: is202user
+#   Password: value from .env
+#
+# ============================================================
+
+
+# ------------------------------------------------------------
+# SERVICES
+# ------------------------------------------------------------
+# A service represents a container that Docker will create.
+#
+# We have one service in this project:
+#
+#   db = MySQL database server
+# ------------------------------------------------------------
+
+services:
+
+
+  # ----------------------------------------------------------
+  # DATABASE SERVICE
+  # ----------------------------------------------------------
+  # "db" is the name of our MySQL service.
+  # This name can also be used by other Docker containers
+  # to communicate with this database.
+  # ----------------------------------------------------------
+
+  db:
+
+
+    # --------------------------------------------------------
+    # MYSQL DOCKER IMAGE
+    # --------------------------------------------------------
+    # An image is a template used to create a container.
+    #
+    # mysql:8.0 means:
+    #
+    #   mysql = official MySQL Docker image
+    #   8.0  = MySQL version 8.0
+    #
+    # Docker downloads this image from Docker Hub if it
+    # does not already exist on the computer.
+    # --------------------------------------------------------
+
+    image: mysql:8.0
+
+
+    # --------------------------------------------------------
+    # CONTAINER NAME
+    # --------------------------------------------------------
+    # Gives our container an easy-to-remember name.
+    #
+    # Without this, Docker Compose generates a name
+    # automatically.
+    #
+    # We can now use commands such as:
+    #
+    #   docker logs mysql-is202
+    #   docker exec -it mysql-is202 bash
+    # --------------------------------------------------------
+
+    container_name: mysql-is202
+
+
+    # --------------------------------------------------------
+    # ENVIRONMENT VARIABLES
+    # --------------------------------------------------------
+    # Environment variables provide configuration values
+    # to the MySQL container.
+    #
+    # The ${VARIABLE_NAME} values come from the .env file.
+    #
+    # Example .env:
+    #
+    # MYSQL_DATABASE=is202
+    # MYSQL_USER=is202user
+    # MYSQL_PASSWORD=is202pass
+    # MYSQL_ROOT_PASSWORD=is202root
+    #
+    # --------------------------------------------------------
+
+    environment:
+
+
+      # ------------------------------------------------------
+      # DEFAULT DATABASE
+      # ------------------------------------------------------
+      # Creates this database when MySQL is initialized.
+      #
+      # Example:
+      #   MYSQL_DATABASE=is202
+      #
+      # The database will be created automatically.
+      # ------------------------------------------------------
+
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+
+
+      # ------------------------------------------------------
+      # NORMAL MYSQL USER
+      # ------------------------------------------------------
+      # Creates a non-root MySQL user.
+      #
+      # Applications should normally use this account rather
+      # than the root account.
+      # ------------------------------------------------------
+
+      MYSQL_USER: ${MYSQL_USER}
+
+
+      # ------------------------------------------------------
+      # PASSWORD FOR NORMAL MYSQL USER
+      # ------------------------------------------------------
+      # Password associated with MYSQL_USER.
+      # ------------------------------------------------------
+
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+
+
+      # ------------------------------------------------------
+      # MYSQL ROOT PASSWORD
+      # ------------------------------------------------------
+      # Root is the administrative account for MySQL.
+      #
+      # Root has extensive privileges and should normally
+      # NOT be used by applications.
+      # ------------------------------------------------------
+
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+
+
+      # ------------------------------------------------------
+      # TIME ZONE
+      # ------------------------------------------------------
+      # Sets the container's time zone to UTC.
+      #
+      # UTC is commonly used by servers and distributed
+      # applications to avoid time-zone inconsistencies.
+      # ------------------------------------------------------
+
+      TZ: UTC
+
+
+    # --------------------------------------------------------
+    # PORT MAPPING
+    # --------------------------------------------------------
+    #
+    # Format:
+    #
+    #   HOST_PORT:CONTAINER_PORT
+    #
+    # MySQL normally listens on port 3306 inside the
+    # container.
+    #
+    # We expose it as port 3307 on our computer.
+    #
+    # Therefore:
+    #
+    #   MySQL Workbench
+    #          |
+    #          | 127.0.0.1:3307
+    #          v
+    #      Docker Host
+    #          |
+    #          | container port 3306
+    #          v
+    #      MySQL 8.0
+    #
+    # IMPORTANT:
+    # MySQL Workbench should use port 3307.
+    # --------------------------------------------------------
+
     ports:
-      - "3307:3306" # Map host port 3307 to container port 3306 (MySQL default)
+
+      - "3307:3306"
+
+
+    # --------------------------------------------------------
+    # VOLUMES
+    # --------------------------------------------------------
+    # Volumes allow data to survive when a container is
+    # stopped or recreated.
+    #
+    # Without this volume, deleting the container could
+    # result in losing the database data.
+    # --------------------------------------------------------
+
     volumes:
-      - db_data:/var/lib/mysql # Persist database data using a named volume
-      - ./initdb:/docker-entrypoint-initdb.d:ro # Mount local initdb directory as read-only to run initialization scripts
+
+
+      # ------------------------------------------------------
+      # MYSQL DATA VOLUME
+      # ------------------------------------------------------
+      # Maps the Docker volume "db_data" to MySQL's internal
+      # data directory.
+      #
+      # MySQL stores databases, tables, indexes, and other
+      # persistent information here.
+      # ------------------------------------------------------
+
+      - db_data:/var/lib/mysql
+
+
+      # ------------------------------------------------------
+      # DATABASE INITIALIZATION SCRIPTS
+      # ------------------------------------------------------
+      # Maps our local "initdb" directory into the special
+      # Docker MySQL initialization directory.
+      #
+      # SQL files placed inside ./initdb will automatically
+      # execute when MySQL initializes a NEW database.
+      #
+      # Example:
+      #
+      #   project/
+      #   |
+      #   +-- docker-compose.yml
+      #   |
+      #   +-- .env
+      #   |
+      #   +-- initdb/
+      #       |
+      #       +-- 01-schema.sql
+      #       +-- 02-data.sql
+      #
+      # :ro means "read only".
+      #
+      # Docker can read these files but the container cannot
+      # modify them.
+      # ------------------------------------------------------
+
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+
+
+    # --------------------------------------------------------
+    # NETWORK
+    # --------------------------------------------------------
+    # Places the MySQL container on our custom Docker network.
+    #
+    # Containers connected to the same network can communicate
+    # with each other using their service/container names.
+    # --------------------------------------------------------
 
     networks:
-      - mysql_network # Connect this service to the custom network
-    restart: unless-stopped # Always restart unless explicitly stopped
 
-    # Resource limits (adjust as needed)
-    deploy:
-      resources:
-
-      
-        limits:
-          cpus: '0.50'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 256M
-
-    healthcheck: # Health check to monitor MySQL readiness
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"] # Run 'mysqladmin ping' to check if MySQL is alive
-      interval: 10s # Run the health check every 10 seconds
-      timeout: 5s # Wait up to 5 seconds for the health check to succeed
-      retries: 5 # Mark as unhealthy after 5 consecutive failures
-      start_period: 20s # Wait 20 seconds before starting health checks (gives MySQL time to initialize)
+      - mysql_network
 
 
-volumes: # Define named volumes for persistent data
-  db_data: # Volume for MySQL data
+    # --------------------------------------------------------
+    # RESTART POLICY
+    # --------------------------------------------------------
+    # Docker will automatically restart MySQL if it stops,
+    # unless the administrator intentionally stops it.
+    #
+    # This is useful for a database server because we usually
+    # want the database to remain available.
+    # --------------------------------------------------------
+
+    restart: unless-stopped
 
 
-networks: # Define custom networks for service communication
-  mysql_network: # Custom network for the database
+    # --------------------------------------------------------
+    # HEALTH CHECK
+    # --------------------------------------------------------
+    # Docker uses this test to determine whether MySQL is
+    # actually ready to accept connections.
+    #
+    # "mysqladmin ping" asks MySQL:
+    #
+    #     Are you alive and ready?
+    #
+    # --silent prevents unnecessary output.
+    # --------------------------------------------------------
+
+    healthcheck:
+
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD} --silent"
+        ]
+
+
+      # ------------------------------------------------------
+      # CHECK INTERVAL
+      # ------------------------------------------------------
+      # Docker performs the health check every 10 seconds.
+      # ------------------------------------------------------
+
+      interval: 10s
+
+
+      # ------------------------------------------------------
+      # TIMEOUT
+      # ------------------------------------------------------
+      # If MySQL does not respond within 5 seconds, that
+      # health-check attempt is considered unsuccessful.
+      # ------------------------------------------------------
+
+      timeout: 5s
+
+
+      # ------------------------------------------------------
+      # RETRIES
+      # ------------------------------------------------------
+      # Docker allows 10 failed checks before marking the
+      # container as unhealthy.
+      # ------------------------------------------------------
+
+      retries: 10
+
+
+      # ------------------------------------------------------
+      # START PERIOD
+      # ------------------------------------------------------
+      # MySQL can take some time to start.
+      #
+      # Docker waits 30 seconds before seriously evaluating
+      # the health-check results.
+      # ------------------------------------------------------
+
+      start_period: 30s
+
+
+
+# ============================================================
+# VOLUMES
+# ============================================================
+# A named Docker volume provides persistent storage.
+#
+# The volume is managed by Docker rather than being tied
+# directly to a folder on the student's computer.
+# ============================================================
+
+volumes:
+
+
+  # ----------------------------------------------------------
+  # DATABASE STORAGE
+  # ----------------------------------------------------------
+  # Docker creates this volume automatically if it does
+  # not already exist.
+  #
+  # The volume stores MySQL's database files.
+  # ----------------------------------------------------------
+
+  db_data:
+
+
+
+# ============================================================
+# NETWORKS
+# ============================================================
+# Docker networks allow containers to communicate with
+# each other.
+# ============================================================
+
+networks:
+
+
+  # ----------------------------------------------------------
+  # CUSTOM MYSQL NETWORK
+  # ----------------------------------------------------------
+  # Creates a private Docker bridge network for our services.
+  #
+  # If we later add an application container, it can connect
+  # to MySQL using the service name:
+  #
+  #     db:3306
+  #
+  # Notice that containers use port 3306 internally.
+  # The 3307 port is only needed when connecting from the
+  # student's computer.
+  # ----------------------------------------------------------
+
+  mysql_network:
+
+    # --------------------------------------------------------
+    # BRIDGE NETWORK
+    # --------------------------------------------------------
+    # "bridge" is the standard Docker network type for
+    # communication between containers.
+    # --------------------------------------------------------
+
+    driver: bridge
+
