@@ -1,5 +1,5 @@
 -- Ensure the database exists and use it
-CREATE DATABASE IF NOT EXISTS IS436;
+CREATE DATABASE IF NOT EXISTS IS202;
 USE IS436;
 
 -- Step 1: Create the Customer table
